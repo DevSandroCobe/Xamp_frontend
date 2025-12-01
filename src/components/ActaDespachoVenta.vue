@@ -4,7 +4,6 @@
 
     <p>Ingrese la fecha de los documentos por exportar</p>
 
-
     <label for="fecha">Fecha:</label>
     <input type="date" v-model="fecha" id="fecha" @change="verificarMigracion" />
 
@@ -19,6 +18,13 @@
     <div v-if="fechaVerificada" class="estado-migracion">
       <span v-if="datosMigrados" class="badge success">✅ Datos ya migrados</span>
       <span v-else class="badge warning">⚠️ Datos no migrados</span>
+    </div>
+
+    <!-- 🛡️ NUEVO: Aviso de seguridad visual -->
+    <div v-if="cargando" class="aviso-seguridad">
+        <h3>⏳ Generando Lote de Archivos...</h3>
+        <p>Por favor, <b>NO CIERRE</b> esta ventana.</p>
+        <p>La descarga del ZIP iniciará automáticamente.</p>
     </div>
 
     <div class="botones">
@@ -36,11 +42,12 @@
         @dblclick.prevent="confirmarBono"
         :title="!datosMigrados && !bonoHabilitado ? 'Primero migre los datos o habilite el bono' : ''"
       >
-        📄 Generar PDF
+        <!-- 📝 Texto dinámico según estado -->
+        {{ cargando ? 'Procesando...' : '📄 Generar y Descargar ZIP' }}
       </button>
 
       <router-link to="/">
-        <button class="volver">🔙 Volver</button>
+        <button class="volver" :disabled="cargando">🔙 Volver</button>
       </router-link>
     </div>
 
@@ -113,7 +120,10 @@ export default {
       ],
     };
   },
+  
+  // 🛡️ ACTIVAR PROTECCIÓN AL MONTAR
   mounted() {
+    window.addEventListener('beforeunload', this.prevenirCierre);
     Swal.fire({
       icon: 'warning',
       title: '⚠️ Atención',
@@ -121,10 +131,25 @@ export default {
       confirmButtonColor: '#8bb915'
     });
   },
+  
+  // 🛡️ LIMPIAR PROTECCIÓN AL SALIR
+  beforeDestroy() {
+    window.removeEventListener('beforeunload', this.prevenirCierre);
+  },
+
   methods: {
+    // 🛡️ BLOQUEO DE CIERRE DE PESTAÑA
+    prevenirCierre(e) {
+      if (this.cargando) {
+        e.preventDefault();
+        e.returnValue = ''; // Estándar para Chrome/Edge
+      }
+    },
+
     mostrarNombreFirma(firma) {
       return firma.replace('Firma', '').replace('.png', '').replace(/([A-Z])/g, ' $1').trim();
     },
+
     async apiRequest(url, method = "GET", body = null) {
       const options = { method, headers: { "Content-Type": "application/json" } }
       if (body) options.body = JSON.stringify(body)
@@ -191,20 +216,64 @@ export default {
       }
     },
 
+    // 🚀 LÓGICA MODIFICADA PARA DESCARGAR ZIP
     async generarPDF() {
       if (!this.fecha) return Swal.fire({ icon: 'info', title: 'Seleccione una fecha' })
       if (!this.firmaSeleccionada) return Swal.fire({ icon: 'info', title: 'Seleccione una firma' })
       if (!this.datosMigrados && !this.bonoHabilitado) return Swal.fire({ icon: 'warning', text: 'Primero migre los datos o habilite el bono' })
 
-      this.cargando = true
+      this.cargando = true // Activa el bloqueo
+      
       try {
         const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
-        const data = await this.apiRequest("/generar_pdf_ventas/", "POST", { fecha: fechaFormateada, firma: this.firmaSeleccionada })
-        Swal.fire({ icon: 'success', title: '✅ PDFs generados', text: `Se generaron ${data.archivos_generados.length} archivos.` })
+        
+        // 1. Petición diferente: Esperamos un BLOB, no un JSON
+        const response = await fetch(`${API_BASE}/generar_pdf_ventas/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                fecha: fechaFormateada, 
+                firma: this.firmaSeleccionada 
+            })
+        });
+
+        if (!response.ok) {
+            // Si falla, intentamos leer el error
+            const errorText = await response.text(); 
+            throw new Error(`Error del servidor: ${response.status} - ${errorText}`);
+        }
+
+        // 2. Convertir respuesta a archivo
+        const blob = await response.blob();
+        
+        // 3. Crear nombre dinámico: Actas_Ventas_2023-11-20_14-30.zip
+        const ahora = new Date();
+        const horaStr = ahora.getHours().toString().padStart(2, '0') + '-' + ahora.getMinutes().toString().padStart(2, '0');
+        const nombreArchivo = `Actas_Ventas_${fechaFormateada}_${horaStr}.zip`;
+
+        // 4. Forzar descarga
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', nombreArchivo);
+        document.body.appendChild(link);
+        link.click();
+        
+        // Limpieza
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+
+        Swal.fire({ 
+            icon: 'success', 
+            title: '¡Descarga Iniciada!', 
+            text: 'Busque el archivo ZIP en su carpeta de descargas.' 
+        });
+
       } catch (error) {
+        console.error(error);
         Swal.fire({ icon: 'error', title: 'Error generando PDF', text: error.message })
       } finally {
-        this.cargando = false
+        this.cargando = false // Desactiva el bloqueo
       }
     }
   }
@@ -402,6 +471,28 @@ button:disabled:hover::after {
   border-radius: 4px;
   font-size: 0.8rem;
   white-space: nowrap;
+}
+
+/* 🛡️ NUEVO ESTILO: AVISO DE SEGURIDAD */
+.aviso-seguridad {
+    background-color: #fff3cd;
+    border: 1px solid #ffecb5;
+    color: #856404;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    animation: palpitar 2s infinite;
+}
+.aviso-seguridad h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #d9534f;
+    display: block; /* Asegura que se comporte como bloque */
+}
+@keyframes palpitar {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
 }
 
 </style>
