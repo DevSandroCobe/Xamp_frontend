@@ -20,11 +20,17 @@
       <span v-else class="badge warning">⚠️ Datos no migrados</span>
     </div>
 
+    <div v-if="cargando" class="aviso-seguridad">
+        <h3>⏳ Procesando...</h3>
+        <p>Generando archivo ZIP. Por favor, <b>NO CIERRE</b> esta ventana.</p>
+    </div>
+
     <div class="botones">
       <button 
         :disabled="cargando || datosMigrados" 
         @click="migrarDatos"
         :title="datosMigrados ? 'Los datos ya fueron migrados' : ''"
+        style="background-color: #ff9800;"
       >
         🔄 {{ datosMigrados ? 'Datos Migrados' : 'Migrar Datos' }}
       </button>
@@ -35,11 +41,11 @@
         @dblclick.prevent="confirmarBono"
         :title="!datosMigrados && !bonoHabilitado ? 'Primero migre los datos o habilite el bono' : ''"
       >
-        📄 Generar PDF
+        {{ cargando ? 'Descargando...' : '📄 Generar y Descargar ZIP' }}
       </button>
 
       <router-link to="/">
-        <button class="volver">🔙 Volver</button>
+        <button class="volver" :disabled="cargando">🔙 Volver</button>
       </router-link>
     </div>
 
@@ -52,7 +58,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Swal from 'sweetalert2'
 
-const API_BASE = "http://localhost:8000/api"
+const API_BASE = "http://192.168.1.52:8000/api"
 
 // refs y estado reactivo
 const fecha = ref("")
@@ -111,9 +117,8 @@ const firmasDisponibles = [
   "FirmaMartinFloresDiaz.png"
 ]
 
-// router y route
+// router
 const route = useRoute()
-const almacenId = route.params.id
 
 onMounted(() => {
   Swal.fire({
@@ -138,12 +143,21 @@ async function apiRequest(url, method = "GET", body = null) {
   return data
 }
 
+// ---------------------------------------------------------
+// 🛠️ CORRECCIÓN 1: Capturar ID en Verificación
+// ---------------------------------------------------------
 async function verificarMigracion() {
   if (!fecha.value) return
   cargando.value = true
   try {
     const fechaFormateada = new Date(fecha.value).toISOString().split('T')[0]
-    const data = await apiRequest(`/verificar_migracion/?fecha=${fechaFormateada}&grupo=ventas`)
+    
+    // 👉 NUEVO: Capturar ID (Composition API style)
+    const idAlmacen = route.params.id || "*";
+
+    // 👉 NUEVO: Enviar parametro &almacen_id
+    const data = await apiRequest(`/verificar_migracion/?fecha=${fechaFormateada}&grupo=recepcion&almacen_id=${idAlmacen}`)
+    
     datosMigrados.value = data.migrado
     fechaVerificada.value = true
 
@@ -164,15 +178,23 @@ async function verificarMigracion() {
   }
 }
 
+// ---------------------------------------------------------
+// 🛠️ CORRECCIÓN 2: Capturar ID en Migración
+// ---------------------------------------------------------
 async function migrarDatos() {
   if (!fecha.value || datosMigrados.value) return
   cargando.value = true
   try {
     const fechaFormateada = new Date(fecha.value).toISOString().split('T')[0]
+    
+    // 👉 NUEVO: Capturar ID para asegurar consistencia
+    const idAlmacen = route.params.id || "*";
+
     const data = await apiRequest('/importar_recepcion/', 'POST', {
       fecha: fechaFormateada,
-      almacen_id: almacenId
+      almacen_id: idAlmacen // Enviamos la variable local corregida
     })
+    
     Swal.fire({
       icon: 'success',
       title: '✅ Migración completada',
@@ -209,9 +231,45 @@ async function generarPDF() {
   cargando.value = true
   try {
     const fechaFormateada = new Date(fecha.value).toISOString().split('T')[0]
-    const data = await apiRequest("/generar_pdf_recepcion/", "POST", { fecha: fechaFormateada, firma: firmaSeleccionada.value })
-    Swal.fire({ icon: 'success', title: '✅ PDFs generados', text: `Se generaron ${data.archivos_generados.length} archivos.` })
+
+    const idAlmacen = route.params.id || "*";
+    
+    const response = await fetch(`${API_BASE}/generar_pdf_recepcion/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            fecha: fechaFormateada, 
+            firma: firmaSeleccionada.value,
+            almacen_id: idAlmacen 
+        })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error del servidor: ${response.status} - ${errorText}`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Nombre del archivo dinámico
+    const ahora = new Date();
+    const horaStr = ahora.getHours().toString().padStart(2, '0') + '-' + ahora.getMinutes().toString().padStart(2, '0');
+    const nombreArchivo = `Actas_Recepcion_${fechaFormateada}_${horaStr}.zip`;
+    
+    link.setAttribute('download', nombreArchivo);
+    document.body.appendChild(link);
+    link.click();
+    
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(link);
+
+    Swal.fire({ icon: 'success', title: '¡Descarga Iniciada!', text: 'Revise su carpeta de descargas.' })
+
   } catch (error) {
+    console.error(error);
     Swal.fire({ icon: 'error', title: 'Error generando PDF', text: error.message })
   } finally {
     cargando.value = false
@@ -220,6 +278,7 @@ async function generarPDF() {
 </script>
 
 <style scoped>
+/* ESTILOS IGUALES + ANIMACIÓN CORREGIDA */
 .contenedor {
   max-width: 480px;
   margin: 3rem auto;
@@ -247,7 +306,6 @@ p {
   font-size: 15px;
   color: #555;
 }
-
 
 label {
   font-weight: 600;
@@ -327,8 +385,8 @@ button:first-child:hover {
   background-color: #f57c00;
 }
 
-/* Animación de carga elegante */
- .loader {
+/* Animación de carga */
+.loader {
   height: 60px;
   aspect-ratio: 1;
   position: relative;
@@ -412,4 +470,26 @@ button:disabled:hover::after {
   white-space: nowrap;
 }
 
+/* 🛡️ AVISO DE SEGURIDAD */
+.aviso-seguridad {
+    background-color: #fff3cd;
+    border: 1px solid #ffecb5;
+    color: #856404;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    animation: palpitar 2s infinite; /* AÑADIDO */
+}
+.aviso-seguridad h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #d9534f;
+    display: block;
+}
+/* AÑADIDO EL KEYFRAME QUE FALTABA EN ESTE COMPONENTE */
+@keyframes palpitar {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+}
 </style>

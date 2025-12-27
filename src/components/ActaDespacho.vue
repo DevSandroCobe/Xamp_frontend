@@ -1,15 +1,14 @@
 <template>
   <div class="contenedor">
-    <h2>🧾 ACTAS DE DESPACHO </h2>
+    <h2>🧾 ACTAS DE DESPACHO</h2> 
 
     <p>Ingrese la fecha de los documentos por exportar</p>
 
-
     <label for="fecha">Fecha:</label>
-  <input type="date" v-model="fecha" id="fecha" @change="verificarMigracion" aria-label="Seleccionar fecha de acta de despacho" />
+    <input type="date" v-model="fecha" id="fecha" @change="verificarMigracion" aria-label="Seleccionar fecha de acta de despacho" />
 
     <label for="firma">Firma responsable:</label>
-  <select v-model="firmaSeleccionada" id="firma" aria-label="Seleccionar firma responsable">
+    <select v-model="firmaSeleccionada" id="firma" aria-label="Seleccionar firma responsable">
       <option disabled value="">Seleccione una firma</option>
       <option v-for="firma in firmasDisponibles" :key="firma" :value="firma">
         {{ mostrarNombreFirma(firma) }}
@@ -17,12 +16,16 @@
     </select>
 
     <div v-if="fechaVerificada" class="estado-migracion">
-  <span v-if="datosMigrados" class="badge success">✅ Datos ya migrados</span>
-  <span v-else class="badge warning">⚠️ Datos no migrados</span>
+      <span v-if="datosMigrados" class="badge success">✅ Datos ya migrados</span>
+      <span v-else class="badge warning">⚠️ Datos no migrados</span>
+    </div>
+
+    <div v-if="cargando" class="aviso-seguridad">
+        <h3>⏳ Procesando...</h3>
+        <p>Por favor, <b>NO CIERRE</b> esta ventana.</p>
     </div>
 
     <div class="botones">
-
       <button 
         :disabled="cargando || datosMigrados" 
         @click="migrarDatos"
@@ -40,11 +43,11 @@
         :title="!datosMigrados && !bonoHabilitado ? 'Primero migre los datos o habilite el bono' : (!firmaSeleccionada ? 'Seleccione una firma' : '')"
         aria-label="Generar PDF de acta de despacho"
       >
-        📄 Generar PDF
+        {{ cargando ? 'Procesando...' : '📄 Generar y Descargar ZIP' }}
       </button>
 
       <router-link to="/">
-        <button class="volver">🔙 Volver</button>
+        <button class="volver" :disabled="cargando">🔙 Volver</button>
       </router-link>
     </div>
 
@@ -55,10 +58,10 @@
 <script>
 import Swal from 'sweetalert2'
 
-const API_BASE = "http://localhost:8000/api"
+const API_BASE = "http://192.168.1.52:8000/api"
 
 export default {
-  name: "ActaDespachoVentas",
+  name: "ActaDespacho", // Corregido el nombre (estaba como ActaDespachoVentas)
   data() {
     return {
       fecha: "",
@@ -68,7 +71,6 @@ export default {
       bonoHabilitado: false,
       firmaSeleccionada: "",
       firmasDisponibles: [
-        // Actualiza esta lista si las firmas de despacho son diferentes
         "FirmaAlfredoRoldanEsparraga.png",
         "FirmaAnthonyAuquipuma.png",
         "FirmaEdgarNolascoChavez.png",
@@ -93,6 +95,7 @@ export default {
     };
   },
   mounted() {
+    window.addEventListener('beforeunload', this.prevenirCierre);
     Swal.fire({
       icon: 'warning',
       title: '⚠️ Atención',
@@ -100,7 +103,16 @@ export default {
       confirmButtonColor: '#8bb915'
     });
   },
+  beforeDestroy() {
+    window.removeEventListener('beforeunload', this.prevenirCierre);
+  },
   methods: {
+    prevenirCierre(e) {
+      if (this.cargando) {
+        e.preventDefault();
+        e.returnValue = ''; 
+      }
+    },
     mostrarNombreFirma(firma) {
       return firma.replace('Firma', '').replace('.png', '').replace(/([A-Z])/g, ' $1').trim();
     },
@@ -114,6 +126,9 @@ export default {
       return data
     },
 
+    // ---------------------------------------------------------
+    // 🛠️ CORRECCIÓN 1: Capturar ID en Verificación
+    // ---------------------------------------------------------
     async verificarMigracion() {
       if (!this.fecha) {
         this.fechaVerificada = false;
@@ -123,7 +138,13 @@ export default {
       this.cargando = true
       try {
         const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
-        const data = await this.apiRequest(`/verificar_migracion/?fecha=${fechaFormateada}&grupo=despacho`)
+        
+        // 👉 NUEVO: Capturamos ID
+        const idAlmacen = this.$route.params.id || "*";
+
+        // 👉 NUEVO: Enviamos el parametro almacen_id
+        const data = await this.apiRequest(`/verificar_migracion/?fecha=${fechaFormateada}&grupo=despacho&almacen_id=${idAlmacen}`)
+        
         this.datosMigrados = data.migrado
         this.fechaVerificada = true
 
@@ -144,12 +165,24 @@ export default {
       }
     },
 
+    // ---------------------------------------------------------
+    // 🛠️ CORRECCIÓN 2: Capturar ID en Migración
+    // ---------------------------------------------------------
     async migrarDatos() {
       if (!this.fecha || this.datosMigrados) return
       this.cargando = true
       try {
         const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
-        const data = await this.apiRequest("/importar_despacho/", "POST", { fecha: fechaFormateada })
+        
+        // 👉 NUEVO: Capturamos ID
+        const idAlmacen = this.$route.params.id || "*";
+
+        // 👉 NUEVO: Enviamos el ID en el body
+        const data = await this.apiRequest("/importar_despacho/", "POST", { 
+            fecha: fechaFormateada,
+            almacen_id: idAlmacen 
+        })
+
         Swal.fire({ icon: 'success', title: '✅ Migración completada', text: data.mensaje || "Datos migrados correctamente" })
         this.datosMigrados = true
         this.bonoHabilitado = false
@@ -182,9 +215,45 @@ export default {
       this.cargando = true
       try {
         const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
-        const data = await this.apiRequest("/generar_pdf_despacho/", "POST", { fecha: fechaFormateada, firma: this.firmaSeleccionada })
-        Swal.fire({ icon: 'success', title: '✅ PDFs generados', text: `Se generaron ${data.archivos_generados.length} archivos.` })
+
+        const idAlmacen = this.$route.params.id || "*";
+
+        const response = await fetch(`${API_BASE}/generar_pdf_despacho/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                fecha: fechaFormateada, 
+                firma: this.firmaSeleccionada,
+                almacen_id: idAlmacen  
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error del servidor: ${response.status} - ${errorText}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Nombre dinámico con hora para evitar caché o sobrescritura visual
+        const ahora = new Date();
+        const horaStr = ahora.getHours().toString().padStart(2, '0') + '-' + ahora.getMinutes().toString().padStart(2, '0');
+        const nombreArchivo = `Actas_Despacho_${fechaFormateada}_${horaStr}.zip`;
+        
+        link.setAttribute('download', nombreArchivo);
+        document.body.appendChild(link);
+        link.click();
+        
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+
+        Swal.fire({ icon: 'success', title: '¡Descarga Iniciada!', text: 'Revise su carpeta de descargas.' })
+
       } catch (error) {
+        console.error(error);
         Swal.fire({ icon: 'error', title: 'Error generando PDF', text: error.message })
       } finally {
         this.cargando = false
@@ -195,6 +264,7 @@ export default {
 </script>
 
 <style scoped>
+/* ESTILOS EXACTAMENTE IGUALES + EL AVISO DE SEGURIDAD */
 .contenedor {
   max-width: 480px;
   margin: 3rem auto;
@@ -222,7 +292,6 @@ p {
   font-size: 15px;
   color: #555;
 }
-
 
 label {
   font-weight: 600;
@@ -302,8 +371,7 @@ button:first-child:hover {
   background-color: #f57c00;
 }
 
-/* Animación de carga elegante */
- .loader {
+.loader {
   height: 60px;
   aspect-ratio: 1;
   position: relative;
@@ -387,4 +455,25 @@ button:disabled:hover::after {
   white-space: nowrap;
 }
 
+/* Aviso de seguridad igual a ventas */
+.aviso-seguridad {
+    background-color: #fff3cd;
+    border: 1px solid #ffecb5;
+    color: #856404;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    animation: palpitar 2s infinite;
+}
+.aviso-seguridad h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #d9534f;
+    display: block; 
+}
+@keyframes palpitar {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+}
 </style>

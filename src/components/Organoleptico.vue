@@ -1,9 +1,8 @@
 <template>
   <div class="contenedor">
-    <h2>Formulario formato Organoleptico</h2>
+    <h2>📋 ACTAS ORGANOLÉPTICO</h2>
 
     <p>Ingrese la fecha de los documentos por exportar</p>
-
 
     <label for="fecha">Fecha:</label>
     <input type="date" v-model="fecha" id="fecha" @change="verificarMigracion" />
@@ -21,26 +20,32 @@
       <span v-else class="badge warning">⚠️ Datos no migrados</span>
     </div>
 
+    <div v-if="cargando" class="aviso-seguridad">
+        <h3>⏳ Procesando...</h3>
+        <p>Generando archivo ZIP. Por favor, <b>NO CIERRE</b> esta ventana.</p>
+    </div>
+
     <div class="botones">
       <button 
         :disabled="cargando || datosMigrados" 
         @click="migrarDatos"
         :title="datosMigrados ? 'Los datos ya fueron migrados' : ''"
+        style="background-color: #ff9800;"
       >
         🔄 {{ datosMigrados ? 'Datos Migrados' : 'Migrar Datos' }}
       </button>
 
       <button 
-        :disabled="cargando || (!datosMigrados && !bonoHabilitado)" 
+        :disabled="cargando || (!datosMigrados && !bonoHabilitado) || !firmaSeleccionada" 
         @click="generarPDF" 
         @dblclick.prevent="confirmarBono"
         :title="!datosMigrados && !bonoHabilitado ? 'Primero migre los datos o habilite el bono' : ''"
       >
-        📄 Generar PDF
+        {{ cargando ? 'Descargando...' : '📄 Generar y Descargar ZIP' }}
       </button>
 
       <router-link to="/">
-        <button class="volver">🔙 Volver</button>
+        <button class="volver" :disabled="cargando">🔙 Volver</button>
       </router-link>
     </div>
 
@@ -51,7 +56,7 @@
 <script>
 import Swal from 'sweetalert2'
 
-const API_BASE = "http://localhost:8000/api"
+const API_BASE = "http://192.168.1.52:8000/api"
 
 export default {
   name: "ActaOrganoleptico",
@@ -62,7 +67,7 @@ export default {
       datosMigrados: false,
       fechaVerificada: false,
       bonoHabilitado: false,
-  firmaSeleccionada: "",
+      firmaSeleccionada: "",
       firmasDisponibles: [
         "FirmaAlfredoRoldanEsparraga.png",
         "FirmaAnthonyAuquipuma.png",
@@ -114,6 +119,7 @@ export default {
     };
   },
   mounted() {
+    window.addEventListener('beforeunload', this.prevenirCierre);
     Swal.fire({
       icon: 'warning',
       title: '⚠️ Atención',
@@ -121,7 +127,16 @@ export default {
       confirmButtonColor: '#8bb915'
     });
   },
+  beforeDestroy() {
+    window.removeEventListener('beforeunload', this.prevenirCierre);
+  },
   methods: {
+    prevenirCierre(e) {
+      if (this.cargando) {
+        e.preventDefault();
+        e.returnValue = ''; 
+      }
+    },
     mostrarNombreFirma(firma) {
       return firma.replace('Firma', '').replace('.png', '').replace(/([A-Z])/g, ' $1').trim();
     },
@@ -135,13 +150,21 @@ export default {
       return data
     },
 
+    // ---------------------------------------------------------
+    // 🛠️ CORRECCIÓN 1: Capturar ID en Verificación
+    // ---------------------------------------------------------
     async verificarMigracion() {
       if (!this.fecha) return
       this.cargando = true
       try {
-        // Enviar la fecha en formato YYYY-MM-DD
         const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
-        const data = await this.apiRequest(`/verificar_migracion/?fecha=${fechaFormateada}&grupo=traslados`)
+        
+        // 👉 NUEVO: Capturar ID
+        const idAlmacen = this.$route.params.id || "*";
+
+        // 👉 NUEVO: Enviar parametro &almacen_id
+        const data = await this.apiRequest(`/verificar_migracion/?fecha=${fechaFormateada}&grupo=organoleptico&almacen_id=${idAlmacen}`)
+        
         this.datosMigrados = data.migrado
         this.fechaVerificada = true
 
@@ -162,13 +185,24 @@ export default {
       }
     },
 
+    // ---------------------------------------------------------
+    // 🛠️ CORRECCIÓN 2: Capturar ID en Migración
+    // ---------------------------------------------------------
     async migrarDatos() {
       if (!this.fecha || this.datosMigrados) return
       this.cargando = true
       try {
-        // Enviar la fecha en formato YYYY-MM-DD
         const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
-        const data = await this.apiRequest("/importar_organoleptico/", "POST", { fecha: fechaFormateada })
+        
+        // 👉 NUEVO: Capturar ID
+        const idAlmacen = this.$route.params.id || "*";
+
+        // 👉 NUEVO: Enviar en el body
+        const data = await this.apiRequest("/importar_organoleptico/", "POST", { 
+            fecha: fechaFormateada,
+            almacen_id: idAlmacen 
+        })
+
         Swal.fire({ icon: 'success', title: '✅ Migración completada', text: data.mensaje || "Datos migrados correctamente" })
         this.datosMigrados = true
         this.bonoHabilitado = false
@@ -195,27 +229,61 @@ export default {
 
     async generarPDF() {
       if (!this.fecha) return Swal.fire({ icon: 'info', title: 'Seleccione una fecha' })
+      if (!this.firmaSeleccionada) return Swal.fire({ icon: 'info', title: 'Seleccione una firma' })
       if (!this.datosMigrados && !this.bonoHabilitado) return Swal.fire({ icon: 'warning', text: 'Primero migre los datos o habilite el bono' })
-      if (!this.firmaSeleccionada) return Swal.fire({ icon: 'warning', text: 'Seleccione una firma' })
 
       this.cargando = true
       try {
-        const data = await this.apiRequest("/generar_pdf_organoleptico/", "POST", {
-          fecha: this.fecha,
-          firma: this.firmaSeleccionada
-        })
-        Swal.fire({ icon: 'success', title: '✅ PDFs generados', text: `Se generaron ${data.archivos_generados.length} archivos.` })
+        const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
+        const idAlmacen = this.$route.params.id || "*";
+        
+        const response = await fetch(`${API_BASE}/generar_pdf_organoleptico/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                fecha: fechaFormateada, 
+                firma: this.firmaSeleccionada,
+                almacen_id: idAlmacen 
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error del servidor: ${response.status} - ${errorText}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Nombre dinámico con hora
+        const ahora = new Date();
+        const horaStr = ahora.getHours().toString().padStart(2, '0') + '-' + ahora.getMinutes().toString().padStart(2, '0');
+        const nombreArchivo = `Actas_Organoleptico_${fechaFormateada}_${horaStr}.zip`;
+        
+        link.setAttribute('download', nombreArchivo);
+        document.body.appendChild(link);
+        link.click();
+        
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+
+        Swal.fire({ icon: 'success', title: '¡Descarga Iniciada!', text: 'Revise su carpeta de descargas.' })
+
       } catch (error) {
+        console.error(error);
         Swal.fire({ icon: 'error', title: 'Error generando PDF', text: error.message })
       } finally {
         this.cargando = false
       }
-    },
+    }
   }
 }
 </script>
 
 <style scoped>
+/* ESTILOS EXACTAMENTE IGUALES AL RESTO */
 .contenedor {
   max-width: 480px;
   margin: 3rem auto;
@@ -322,8 +390,7 @@ button:first-child:hover {
   background-color: #f57c00;
 }
 
-/* Animación de carga elegante */
- .loader {
+.loader {
   height: 60px;
   aspect-ratio: 1;
   position: relative;
@@ -407,4 +474,25 @@ button:disabled:hover::after {
   white-space: nowrap;
 }
 
+/* 🛡️ AVISO DE SEGURIDAD CORREGIDO */
+.aviso-seguridad {
+    background-color: #fff3cd;
+    border: 1px solid #ffecb5;
+    color: #856404;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    animation: palpitar 2s infinite;
+}
+.aviso-seguridad h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #d9534f;
+    display: block;
+}
+@keyframes palpitar {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+}
 </style>

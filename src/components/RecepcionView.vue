@@ -1,286 +1,354 @@
 <template>
-  <div class="pagina">
-    <!-- ENCABEZADO -->
+  <div class="layout-container">
+    <div class="watermark"></div>
+
     <header class="encabezado">
-      <div class="logo-container">
-        <img src="/imagenes/logo.jpg" alt="Logo" class="logo" />
+      <div class="logo-box">
+        <img src="/imagenes/logo.jpg" alt="Logo Cobefar" class="logo" />
       </div>
-      <div class="titulo-container">
+      
+      <div class="titulo-box">
         <h1>ÁREA DE DIRECCIÓN TÉCNICA DE MEDICAMENTOS</h1>
-        <h2 class="subtitulo">Panel de Reportes y Utilidades</h2>
       </div>
     </header>
 
-    <!-- CUERPO PRINCIPAL -->
-    <main class="cuerpo">
-      <section class="hero-section">
+    <main class="contenido-principal">
+      <section class="bienvenida">
         <h2 class="hero-title">Bienvenido</h2>
-        <p class="instrucciones">Seleccione el tipo de acta que desea generar:</p>
-        <div class="botonera">
-          <button class="boton" @click="irADespacho" aria-label="Ir a Acta de Despacho">
-            <span>🧾</span> Acta de Despacho
-          </button>
-          <button class="boton reception" @click="irADespachoRecepcion" aria-label="Ir a Actas de Recepción">
-            <span>📦</span> Actas de Recepción
-          </button>
-          <button class="boton organo" @click="generarOrganoleptico" aria-label="Generar Organoléptico">
-            <span>🧪</span> Generar Organoléptico
-          </button>
-        </div>
+        <p class="instrucciones">Seleccione el módulo al que desea ingresar:</p>
       </section>
+
+      <div class="grid-opciones">
+        <div class="card-opcion" @click="navegar('acta-despacho')">
+          <div class="icono">🧾</div>
+          <h3>Acta de Despacho</h3>
+        </div>
+
+        <div class="card-opcion" @click="navegar('actas-recepcion')">
+          <div class="icono">📦</div>
+          <h3>Actas de Recepción</h3>
+        </div>
+
+        <div class="card-opcion" @click="navegar('organoleptico')">
+          <div class="icono">🧪</div>
+          <h3>Generar Organoléptico</h3>
+        </div>
+      </div>
     </main>
 
-    <!-- PIE DE PÁGINA -->
-    <footer class="pie">
-      <div class="p1">
-        <p><strong>👨‍💻 Desarrollado por:</strong><br><br>
-          Área de Sistemas y T.I.<br>
-          - Sandro Dominguez Albornoz
-        </p>
+    <footer class="pie-pagina">
+      <div class="footer-grid">
+        
+        <div class="columna">
+          <h4 class="titulo-columna">👨‍💻 Desarrollo</h4>
+          <div class="info-bloque">
+            <p class="area">Área de Sistemas y T.I.</p>
+            <p class="dev-name">Sandro Dominguez Albornoz</p>
+          </div>
+        </div>
+
+        <div class="columna">
+          <h4 class="titulo-columna">📬 Mesa de Ayuda</h4>
+          <ul class="lista-contactos">
+            <li><a href="mailto:soporte.ti@cobefar.com.pe">soporte.ti@cobefar.com.pe</a></li>
+            <li><a href="mailto:coordinador.ti@cobefar.com.pe">coordinador.ti@cobefar.com.pe</a></li>
+            <li><a href="mailto:coordinador.desarrollo@cobefar.com.pe">coordinador.desarrollo@cobefar.com.pe</a></li>
+            <li><a href="mailto:soporte.desarrollo@cobefar.com.pe">soporte.desarrollo@cobefar.com.pe</a></li>
+          </ul>
+        </div>
+
+        <div class="columna">
+          <h4 class="titulo-columna">🛠️ Tecnologías</h4>
+          <div class="tech-grid">
+            
+            <div class="tech-item">
+              <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="Python" />
+              <span>Python</span>
+            </div>
+
+            <div class="tech-item">
+              <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vuejs/vuejs-original.svg" alt="Vue.js" />
+              <span>Vue 3</span>
+            </div>
+
+            <div class="tech-item">
+              <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/azuresqldatabase/azuresqldatabase-original.svg" alt="Hana SQL" />
+              <span>Hana SQL</span>
+            </div>
+
+            <div class="tech-item">
+              <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg" alt="HTML5" />
+              <span>HTML5</span>
+            </div>
+            
+            <div class="tech-item">
+              <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg" alt="CSS3" />
+              <span>CSS3</span>
+            </div>
+
+          </div>
+        </div>
+
       </div>
-      <div class="p2">
-        <p><strong>📬Contacto :</strong><br><br>
-          soporte.ti@cobefar.com.pe<br>
-        <span class="nivel-contacto">↳ coordinador.ti@cobefar.com.pe</span><br>
-        <span class="nivel-contacto">↳↳ coordinador.desarrollo@cobefar.com.pe</span><br>
-        <span class="nivel-contacto">↳↳↳ soporte.desarrollo@cobefar.com.pe</span>
-        </p>
-      </div>
-      <div class="p3">
-        <p><strong>Tecnologías usadas :</strong></p>
-        <ul>
-          <li><img src="/imagenes/pie/p_1.jpg" alt="Hana SQL" /> Hana SQL</li>
-          <li><img src="/imagenes/pie/p_2.jpg" alt="PHP 7" /> PHP 7</li>
-          <li><img src="/imagenes/pie/p_3.jpg" alt="HTML5" /> HTML5</li>
-          <li><img src="/imagenes/pie/p_4.jpg" alt="CSS3" /> CSS3</li>
-        </ul>
-      </div>
-    </footer>
+      </footer>
   </div>
 </template>
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
+import Swal from 'sweetalert2'
+
 const route = useRoute()
 const router = useRouter()
 
-
-function irADespacho() {
+function navegar(rutaBase) {
   const almacenId = route.params.id
-  if (!almacenId) {
-    return Swal.fire({ icon: 'warning', title: 'No hay almacén seleccionado' })
-  }
-  router.push(`/acta-despacho/${almacenId}`)
-}
 
-function irADespachoRecepcion() {
-  const almacenId = route.params.id
   if (!almacenId) {
-    return Swal.fire({ icon: 'warning', title: 'No hay almacén seleccionado' })
+    return Swal.fire({
+      icon: 'warning',
+      title: 'Atención',
+      text: 'No hay almacén seleccionado.',
+      confirmButtonColor: '#2e7d32'
+    })
   }
-  router.push(`/actas-recepcion/${almacenId}`)
-}
-
-function generarOrganoleptico() {
-  const almacenId = route.params.id
-  if (!almacenId) {
-    return Swal.fire({ icon: 'warning', title: 'No hay almacén seleccionado' })
-  }
-  router.push(`/organoleptico/${almacenId}`)
+  
+  router.push(`/${rutaBase}/${almacenId}`)
 }
 </script>
 
 <style scoped>
-.contenedor {
-  max-width: 480px;
-  margin: 3rem auto;
-  padding: 2rem;
-  background-color: #ffffff;
-  border: 2px solid #4CAF50;
-  border-radius: 12px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
-  text-align: center;
-  font-family: 'Rubik', sans-serif;
-}
-
-h2 {
-  color: #2e7d32;
-  margin-bottom: 1rem;
-  font-size: 1.6rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-p {
-  margin-bottom: 1rem;
-  font-size: 15px;
-  color: #555;
-}
-
-
-label {
-  font-weight: 600;
-  color: #444;
-  display: block;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-input[type="date"] {
-  padding: 0.6rem;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  width: 100%;
-  max-width: 260px;
-  font-size: 15px;
-}
-
-select#firma {
-  width: 100%;
-  padding: 0.6rem;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  font-size: 15px;
-  margin-bottom: 1rem;
-  background: #f8fafc;
-  color: #333;
-  transition: border-color 0.2s;
-}
-select#firma:focus {
-  border-color: #4CAF50;
-  outline: none;
-}
-
-.botones {
+/* --- LAYOUT GLOBAL --- */
+.layout-container {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  margin-top: 1.5rem;
-}
-
-button {
-  background-color: #4CAF50;
-  border: none;
-  color: white;
-  padding: 0.8rem 1.4rem;
-  font-size: 15px;
-  font-weight: 500;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-button:hover {
-  background-color: #388e3c;
-}
-
-button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-button.volver {
-  background-color: #e0e0e0;
-  color: #333;
-}
-
-button.volver:hover {
-  background-color: #c2c2c2;
-}
-
-button:first-child {
-  background-color: #388e3c;
-}
-
-button:first-child:hover {
-  background-color: #4CAF50;
-}
-
-/* Animación de carga elegante */
- .loader {
-  height: 60px;
-  aspect-ratio: 1;
+  height: 100vh;
+  font-family: 'Rubik', sans-serif;
+  background-color: #f8f9fa;
   position: relative;
-  margin: 1rem auto;
+  overflow: hidden;
 }
-.loader::before,
-.loader::after {
-  content: "";
+
+.watermark {
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  transform-origin: bottom;
-}
-.loader::after {
-  background:
-    radial-gradient(at 75% 15%,#fffb,#0000 35%),
-    radial-gradient(at 80% 40%,#0000,#0008),
-    radial-gradient(circle  5px,#fff 94%,#0000),
-    radial-gradient(circle 10px,#000 94%,#0000),
-    linear-gradient(#F93318 0 0) top   /100% calc(50% - 5px),
-    linear-gradient(#fff    0 0) bottom/100% calc(50% - 5px)
-    #000;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 500px;
+  background-image: url('/imagenes/logo.jpg');
   background-repeat: no-repeat;
-  animation: l20 1s infinite cubic-bezier(0.5,120,0.5,-120);
-}
-.loader::before {
-  background:#ddd;
-  filter: blur(8px);
-  transform: scaleY(0.4) translate(-13px, 0px);
-}
-@keyframes l20 { 
- 30%,70% {transform:rotate(0deg)}
- 49.99%  {transform:rotate(0.2deg)}
- 50%     {transform:rotate(-0.2deg)}
+  background-position: center;
+  background-size: contain;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 0;
+  filter: grayscale(100%);
 }
 
-.estado-migracion {
-  margin: 1rem 0;
+/* --- HEADER --- */
+.encabezado {
+  background: white;
+  height: 80px;
+  border-bottom: 3px solid #2e7d32;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Título centrado */
+  padding: 0 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  z-index: 10;
+  flex-shrink: 0;
 }
 
-.badge {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.success {
-  background-color: #e8f5e9;
-  color: #2e7d32;
-  border: 1px solid #a5d6a7;
-  animation: fadeIn 0.6s ease;
-}
-
-.warning {
-  background-color: #fff8e1;
-  color: #ff8f00;
-  border: 1px solid #ffe082;
-  animation: fadeIn 0.6s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-button:disabled {
-  opacity: 0.7;
-  pointer-events: all;
-}
-
-button:disabled:hover::after {
-  content: attr(title);
+.logo-box {
   position: absolute;
-  top: -35px;
-  background: #333;
-  color: #fff;
-  padding: 0.4rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  left: 2rem; /* Pegado a la izquierda */
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.logo {
+  height: 55px;
+  width: auto;
+  display: block;
+}
+
+.titulo-box h1 {
+  color: #2e7d32;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+  text-align: center;
   white-space: nowrap;
 }
 
+/* --- CUERPO --- */
+.contenido-principal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+  z-index: 1;
+  overflow-y: auto;
+}
+
+.bienvenida {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.hero-title {
+  color: #333;
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.instrucciones {
+  color: #666;
+}
+
+.grid-opciones {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.card-opcion {
+  background: white;
+  width: 250px;
+  padding: 2rem 1rem;
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+  transition: transform 0.2s;
+}
+
+.card-opcion:hover {
+  transform: translateY(-5px);
+  border-color: #2e7d32;
+}
+
+.card-opcion .icono {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.card-opcion h3 {
+  color: #2e7d32;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* --- FOOTER OSCURO --- */
+.pie-pagina {
+  background-color: #263238;
+  color: #ecf0f1;
+  padding: 2rem 2rem; /* Espacio uniforme */
+  flex-shrink: 0;
+  z-index: 1;
+  font-size: 0.85rem;
+}
+
+.footer-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.columna {
+  display: flex;
+  flex-direction: column;
+}
+
+.titulo-columna {
+  color: #81c784;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  border-bottom: 1px solid #546e7a;
+  padding-bottom: 0.4rem;
+  width: fit-content;
+}
+
+.area { font-weight: 700; margin-bottom: 0.3rem; }
+.dev-name { color: #b0bec5; }
+
+/* Lista de correos plana */
+.lista-contactos {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lista-contactos li {
+  margin-bottom: 0.5rem;
+}
+
+.lista-contactos a {
+  color: #eceff1;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.lista-contactos a:hover {
+  color: #81c784;
+  text-decoration: underline;
+}
+
+/* Iconos SVG */
+.tech-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.tech-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.08);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.tech-item:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.tech-item img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.tech-item span {
+  font-size: 0.85rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .layout-container { height: auto; overflow: auto; }
+  .encabezado { flex-direction: column; height: auto; padding: 1rem; gap: 0.5rem; }
+  .logo-box { position: static; transform: none; margin-bottom: 0.5rem; }
+  .titulo-box h1 { white-space: normal; font-size: 1.1rem; }
+  .footer-grid { grid-template-columns: 1fr; text-align: center; }
+  .titulo-columna { margin: 0 auto 0.8rem; }
+  .tech-grid { justify-content: center; }
+}
 </style>

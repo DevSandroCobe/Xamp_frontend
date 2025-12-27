@@ -20,11 +20,14 @@
       <span v-else class="badge warning">⚠️ Datos no migrados</span>
     </div>
 
-    <!-- 🛡️ NUEVO: Aviso de seguridad visual -->
     <div v-if="cargando" class="aviso-seguridad">
-        <h3>⏳ Generando Lote de Archivos...</h3>
+        <h3>⏳ {{ tituloProceso }}</h3>
         <p>Por favor, <b>NO CIERRE</b> esta ventana.</p>
-        <p>La descarga del ZIP iniciará automáticamente.</p>
+        
+        <div class="barra-contenedor">
+            <div class="barra-relleno" :style="{ width: progreso + '%' }"></div>
+        </div>
+        <p class="texto-progreso">{{ textoProgreso }} ({{ progreso }}%)</p>
     </div>
 
     <div class="botones">
@@ -33,7 +36,7 @@
         @click="migrarDatos"
         :title="datosMigrados ? 'Los datos ya fueron migrados' : ''"
       >
-        🔄 {{ datosMigrados ? 'Datos Migrados' : 'Migrar Datos' }}
+        🔄 {{ (cargando && tipoProceso === 'migracion') ? 'Migrando...' : (datosMigrados ? 'Datos Migrados' : 'Migrar Datos') }}
       </button>
 
       <button 
@@ -42,23 +45,20 @@
         @dblclick.prevent="confirmarBono"
         :title="!datosMigrados && !bonoHabilitado ? 'Primero migre los datos o habilite el bono' : ''"
       >
-        <!-- 📝 Texto dinámico según estado -->
-        {{ cargando ? 'Procesando...' : '📄 Generar y Descargar ZIP' }}
+        {{ (cargando && tipoProceso === 'pdf') ? 'Procesando...' : '📄 Generar y Descargar ZIP' }}
       </button>
 
       <router-link to="/">
         <button class="volver" :disabled="cargando">🔙 Volver</button>
       </router-link>
     </div>
-
-    <div v-if="cargando" class="loader"></div>
   </div>
 </template>
 
 <script>
 import Swal from 'sweetalert2'
 
-const API_BASE = "http://localhost:8000/api"
+const API_BASE = "http://192.168.1.52:8000/api"
 
 export default {
   name: "ActaDespachoVentas",
@@ -69,59 +69,31 @@ export default {
       datosMigrados: false,
       fechaVerificada: false,
       bonoHabilitado: false,
+      
+      // Variables para la barra de progreso
+      progreso: 0,
+      textoProgreso: '',
+      intervaloPolling: null, // Variable para controlar el timer
+      tipoProceso: '', // 'migracion' o 'pdf'
+
       firmaSeleccionada: "",
       firmasDisponibles: [
         "FirmaAlfredoRoldanEsparraga.png",
         "FirmaAnthonyAuquipuma.png",
-        "FirmaEdgarNolascoChavez.png",
-        "FirmaDavidVidalRafael.png",
-        "FirmaDamianAlvarezGarcia.png",
-        "FirmaCesarLopezRivas.png",
         "FirmaCarmenCondoriSaravia.png",
-        "FirmaCarlosRodasSandoval.png",
-        "FirmaAntonySarangoTamayo.png",
-        "FirmaHemersonRichardLauraPaucar.png",
-        "FirmaHeberCastilloCastillo.png",
-        "FirmaFreddyAnguloGaray.png",
-        "FirmaEvelinMamaniDelgado.png",
-        "FirmaHenryRodasSandoval.png",
-        "FirmaJesusDanielPisconteAguado.png",
-        "FirmaJesusAngelNunahuanca.png",
-        "FirmaIvanAchoNavarro.png",
-        "FirmaMaribelRamos.png",
-        "FirmaRaulSuarezPumacayo.png",
-        "FirmaRaulLlanosYauri.png",
-        "FirmaLuisPerezGomez.png",
-        "FirmaMariaLopezSanchez.png",
-        "FirmaPedroGonzalezDiaz.png",
-        "FirmaAnaMartinezVega.png",
-        "FirmaJoseRamirezTorres.png",
-        "FirmaSofiaCastroMendoza.png",
-        "FirmaMiguelFloresParedes.png",
-        "FirmaLuciaMoralesReyes.png",
-        "FirmaJorgeVargasSalas.png",
-        "FirmaPatriciaHerreraCruz.png",
-        "FirmaRicardoOrtegaSilva.png",
-        "FirmaSandraGutierrezRios.png",
-        "FirmaVictorMendozaAguilar.png",
-        "FirmaGabrielaSotoCampos.png",
-        "FirmaFernandoNavarroPeña.png",
-        "FirmaPaolaRojasValdez.png",
-        "FirmaCarmenZamoraLuna.png",
-        "FirmaOscarParedesQuispe.png",
-        "FirmaRosaVeraHuaman.png",
-        "FirmaHugoSalazarMejia.png",
-        "FirmaGloriaCruzEspinoza.png",
-        "FirmaCesarVargasLopez.png",
-        "FirmaDianaMendozaPerez.png",
-        "FirmaJulioRamirezSoto.png",
-        "FirmaElenaTorresGomez.png",
-        "FirmaMartinFloresDiaz.png"
       ],
     };
   },
+
+  computed: {
+    // Título dinámico para la caja amarilla
+    tituloProceso() {
+        if (this.tipoProceso === 'migracion') return 'Importando Datos...';
+        if (this.tipoProceso === 'pdf') return 'Generando Archivos...';
+        return 'Procesando...';
+    }
+  },
   
-  // 🛡️ ACTIVAR PROTECCIÓN AL MONTAR
   mounted() {
     window.addEventListener('beforeunload', this.prevenirCierre);
     Swal.fire({
@@ -132,17 +104,16 @@ export default {
     });
   },
   
-  // 🛡️ LIMPIAR PROTECCIÓN AL SALIR
   beforeDestroy() {
     window.removeEventListener('beforeunload', this.prevenirCierre);
+    if (this.intervaloPolling) clearInterval(this.intervaloPolling);
   },
 
   methods: {
-    // 🛡️ BLOQUEO DE CIERRE DE PESTAÑA
     prevenirCierre(e) {
       if (this.cargando) {
         e.preventDefault();
-        e.returnValue = ''; // Estándar para Chrome/Edge
+        e.returnValue = ''; 
       }
     },
 
@@ -153,19 +124,85 @@ export default {
     async apiRequest(url, method = "GET", body = null) {
       const options = { method, headers: { "Content-Type": "application/json" } }
       if (body) options.body = JSON.stringify(body)
-
       const res = await fetch(`${API_BASE}${url}`, options)
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || "Error en el servidor")
       return data
     },
 
+    // 🔄 FUNCIÓN IMPORTANTE: MONITOREA EL AVANCE REAL CADA SEGUNDO
+    async monitorearProgreso(taskId, esDescarga = false) {
+      this.progreso = 0;
+      
+      this.intervaloPolling = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_BASE}/progreso_pdf/${taskId}`);
+          const data = await res.json();
+
+          // 1. SI EL BACKEND REPORTA UN ERROR
+          if (data.error) {
+            clearInterval(this.intervaloPolling);
+            this.cargando = false;
+
+            // 🛑 AQUÍ EVITAMOS LA PANTALLA ROJA SI SOLO ES "NO HAY DATOS"
+            if (data.error.includes("No hay ventas") || data.error.includes("No se encontraron registros")) {
+                Swal.fire({
+                    icon: 'info', // Azul informativo
+                    title: 'Aviso',
+                    text: 'No se encontraron registros de venta para la fecha y almacén seleccionados.',
+                    confirmButtonText: 'Entendido'
+                });
+            } else {
+                // Si es otro error, mostramos el rojo
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error });
+            }
+            return;
+          }
+
+          // 2. ACTUALIZACIÓN VISUAL REAL
+          this.progreso = data.porcentaje || 0;
+          this.textoProgreso = data.mensaje || 'Procesando...';
+
+          // 3. SI TERMINÓ EL PROCESO
+          if (data.listo) {
+            clearInterval(this.intervaloPolling);
+            this.progreso = 100;
+            
+            this.cargando = false; 
+            window.removeEventListener('beforeunload', this.prevenirCierre);
+
+            if (esDescarga) {
+               // FORZAR DESCARGA
+               window.location.href = `${API_BASE}/descargar_resultado/${taskId}`;
+               Swal.fire({ 
+                   icon: 'success', 
+                   title: '¡Generado!', 
+                   text: 'La descarga comenzará en breve.', 
+                   timer: 2000, 
+                   showConfirmButton: false 
+               });
+            } else {
+               Swal.fire({ icon: 'success', title: 'Completado', text: 'Proceso finalizado correctamente.' });
+            }
+            
+            setTimeout(() => { this.cargando = false; }, 1500);
+          }
+
+        } catch (error) {
+           clearInterval(this.intervaloPolling);
+           this.cargando = false;
+           Swal.fire({ icon: 'error', title: 'Error de Conexión', text: error.message });
+        }
+      }, 1000); 
+    },
+
     async verificarMigracion() {
       if (!this.fecha) return
-      this.cargando = true
       try {
         const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
-        const data = await this.apiRequest(`/verificar_migracion/?fecha=${fechaFormateada}&grupo=ventas`)
+        const idAlmacen = this.$route.params.id || "*"; 
+
+        const data = await this.apiRequest(`/verificar_migracion/?fecha=${fechaFormateada}&grupo=ventas&almacen_id=${idAlmacen}`)
         this.datosMigrados = data.migrado
         this.fechaVerificada = true
 
@@ -181,20 +218,32 @@ export default {
       } catch (error) {
         console.error("Error verificando migración:", error)
         this.datosMigrados = false
-      } finally {
-        this.cargando = false
       }
     },
 
+    // 1️⃣ BOTÓN MIGRAR
     async migrarDatos() {
       if (!this.fecha || this.datosMigrados) return
+      
       this.cargando = true
+      this.tipoProceso = 'migracion';
+      this.progreso = 50; // Simulación simple para migración (que es rápida)
+      this.textoProgreso = "Conectando con base de datos...";
+
       try {
         const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
-        const data = await this.apiRequest("/importar_ventas/", "POST", { fecha: fechaFormateada })
-        Swal.fire({ icon: 'success', title: '✅ Migración completada', text: data.mensaje || "Datos migrados correctamente" })
+        const idAlmacen = this.$route.params.id || "*"; 
+        
+        const data = await this.apiRequest("/importar_ventas/", "POST", { 
+            fecha: fechaFormateada,
+            almacen_id: idAlmacen 
+        })
+        
+        this.progreso = 100;
+        await Swal.fire({ icon: 'success', title: '✅ Migración completada', text: data.mensaje || "Datos migrados correctamente" })
         this.datosMigrados = true
         this.bonoHabilitado = false
+
       } catch (error) {
         Swal.fire({ icon: 'error', title: 'Error en migración', text: error.message })
       } finally {
@@ -216,64 +265,46 @@ export default {
       }
     },
 
-    // 🚀 LÓGICA MODIFICADA PARA DESCARGAR ZIP
+    // 2️⃣ BOTÓN PDF (CON BARRA REAL Y CHEQUEO DE "NO VENTAS")
     async generarPDF() {
       if (!this.fecha) return Swal.fire({ icon: 'info', title: 'Seleccione una fecha' })
       if (!this.firmaSeleccionada) return Swal.fire({ icon: 'info', title: 'Seleccione una firma' })
       if (!this.datosMigrados && !this.bonoHabilitado) return Swal.fire({ icon: 'warning', text: 'Primero migre los datos o habilite el bono' })
 
-      this.cargando = true // Activa el bloqueo
-      
+      this.cargando = true;
+      this.tipoProceso = 'pdf';
+      this.textoProgreso = "Iniciando solicitud al servidor...";
+      this.progreso = 0;
+
       try {
         const fechaFormateada = new Date(this.fecha).toISOString().split('T')[0]
+        const idAlmacen = this.$route.params.id || "*";
         
-        // 1. Petición diferente: Esperamos un BLOB, no un JSON
-        const response = await fetch(`${API_BASE}/generar_pdf_ventas/`, {
+        // A. Solicitamos iniciar la tarea
+        const response = await fetch(`${API_BASE}/iniciar_generacion_pdf/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 fecha: fechaFormateada, 
-                firma: this.firmaSeleccionada 
+                firma: this.firmaSeleccionada,
+                almacen_id: idAlmacen 
             })
         });
 
         if (!response.ok) {
-            // Si falla, intentamos leer el error
-            const errorText = await response.text(); 
-            throw new Error(`Error del servidor: ${response.status} - ${errorText}`);
+            const txt = await response.text();
+            throw new Error(txt);
         }
 
-        // 2. Convertir respuesta a archivo
-        const blob = await response.blob();
+        const data = await response.json();
         
-        // 3. Crear nombre dinámico: Actas_Ventas_2023-11-20_14-30.zip
-        const ahora = new Date();
-        const horaStr = ahora.getHours().toString().padStart(2, '0') + '-' + ahora.getMinutes().toString().padStart(2, '0');
-        const nombreArchivo = `Actas_Ventas_${fechaFormateada}_${horaStr}.zip`;
-
-        // 4. Forzar descarga
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', nombreArchivo);
-        document.body.appendChild(link);
-        link.click();
-        
-        // Limpieza
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(link);
-
-        Swal.fire({ 
-            icon: 'success', 
-            title: '¡Descarga Iniciada!', 
-            text: 'Busque el archivo ZIP en su carpeta de descargas.' 
-        });
+        // B. Iniciamos el monitoreo con el ID que nos dio el backend
+        this.monitorearProgreso(data.task_id, true);
 
       } catch (error) {
+        this.cargando = false;
         console.error(error);
         Swal.fire({ icon: 'error', title: 'Error generando PDF', text: error.message })
-      } finally {
-        this.cargando = false // Desactiva el bloqueo
       }
     }
   }
@@ -308,7 +339,6 @@ p {
   font-size: 15px;
   color: #555;
 }
-
 
 label {
   font-weight: 600;
@@ -369,6 +399,8 @@ button:hover {
 button:disabled {
   background-color: #cccccc;
   cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: all;
 }
 
 button.volver {
@@ -386,44 +418,6 @@ button:first-child {
 
 button:first-child:hover {
   background-color: #f57c00;
-}
-
-/* Animación de carga elegante */
- .loader {
-  height: 60px;
-  aspect-ratio: 1;
-  position: relative;
-  margin: 1rem auto;
-}
-.loader::before,
-.loader::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  transform-origin: bottom;
-}
-.loader::after {
-  background:
-    radial-gradient(at 75% 15%,#fffb,#0000 35%),
-    radial-gradient(at 80% 40%,#0000,#0008),
-    radial-gradient(circle  5px,#fff 94%,#0000),
-    radial-gradient(circle 10px,#000 94%,#0000),
-    linear-gradient(#F93318 0 0) top   /100% calc(50% - 5px),
-    linear-gradient(#fff    0 0) bottom/100% calc(50% - 5px)
-    #000;
-  background-repeat: no-repeat;
-  animation: l20 1s infinite cubic-bezier(0.5,120,0.5,-120);
-}
-.loader::before {
-  background:#ddd;
-  filter: blur(8px);
-  transform: scaleY(0.4) translate(-13px, 0px);
-}
-@keyframes l20 { 
- 30%,70% {transform:rotate(0deg)}
- 49.99%  {transform:rotate(0.2deg)}
- 50%     {transform:rotate(-0.2deg)}
 }
 
 .estado-migracion {
@@ -456,43 +450,82 @@ button:first-child:hover {
   to { opacity: 1; transform: scale(1); }
 }
 
-button:disabled {
-  opacity: 0.7;
-  pointer-events: all;
-}
-
-button:disabled:hover::after {
-  content: attr(title);
-  position: absolute;
-  top: -35px;
-  background: #333;
-  color: #fff;
-  padding: 0.4rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
-
-/* 🛡️ NUEVO ESTILO: AVISO DE SEGURIDAD */
+/* 🛡️ ESTILOS DEL AVISO Y BARRA DE CARGA */
 .aviso-seguridad {
     background-color: #fff3cd;
     border: 1px solid #ffecb5;
     color: #856404;
-    padding: 1rem;
+    padding: 1.5rem;
     margin: 1rem 0;
     border-radius: 8px;
-    animation: palpitar 2s infinite;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    animation: palpitar 3s infinite;
 }
+
 .aviso-seguridad h3 {
     margin: 0 0 0.5rem 0;
     font-size: 1.1rem;
     color: #d9534f;
-    display: block; /* Asegura que se comporte como bloque */
+    display: block;
 }
+
+/* Barra contenedora (fondo gris) */
+.barra-contenedor {
+  width: 100%;
+  height: 20px;
+  background-color: #e9ecef;
+  border-radius: 10px;
+  margin: 15px 0 5px 0;
+  overflow: hidden; 
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+  border: 1px solid #dcdcdc;
+}
+
+/* Relleno de la barra (verde animado) */
+.barra-relleno {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #66bb6a);
+  width: 0%;
+  transition: width 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Efecto de líneas diagonales moviéndose */
+.barra-relleno::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 40px 40px;
+  animation: mover-rayas 1s linear infinite;
+}
+
+@keyframes mover-rayas {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 0; }
+}
+
 @keyframes palpitar {
     0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+    70% { box-shadow: 0 0 0 6px rgba(255, 193, 7, 0); }
     100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
 }
 
+.texto-progreso {
+  font-size: 14px;
+  color: #666;
+  font-weight: 600;
+  margin-top: 5px;
+}
 </style>
